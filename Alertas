@@ -1,0 +1,51 @@
+/* Consulta Alertas.
+ * Consulta marcada a ser optimizada por índices.
+ * Conecta con la base de datos replica del hospital de Antequera
+ */
+WITH cronicos AS (
+  SELECT NUHSA,
+         MAX(TIENE_PAP) AS TIENE_PAP,
+         MAX(INDICADOR_BAJA_BDU)  AS INDICADOR_BAJA_BDU
+  FROM EPADI_CRONICOS_PRIORIZADOS
+  GROUP BY NUHSA
+),
+asistenciales AS (
+  SELECT NUHSA,
+         MAX(EPADI)       AS EPADI,
+         MAX(INMOVILIZADO) AS INMOVILIZADO,
+         MAX(BOTIQUIN)    AS BOTIQUIN
+  FROM EPADI_ASISTENCIALES
+  GROUP BY NUHSA
+),
+ultima_admision AS (
+  SELECT a.usuario,
+         MAX(a.fch_ingreso) AS max_fch_ingreso
+  FROM rep_his_own.adm_admision@REPLICA_HOSPITAL_ANTEQUERA a
+  WHERE a.UNID_FUNC_RESP = 005874
+     OR a.UNID_FUNC_ALTA = 005874
+  GROUP BY a.usuario
+)
+SELECT usu.nuhsa,
+       adm.fch_ingreso AS "Fecha Ingreso",
+       adm.fch_alta    AS "Fecha Alta",
+       CASE WHEN c.TIENE_PAP = 1 THEN 'SI' ELSE 'NO' END AS "PAP",
+       a.EPADI,
+       CASE WHEN a.INMOVILIZADO = 1 THEN 'SÍ' ELSE 'NO' END AS Inmovilizado,
+       CASE WHEN c.TIENE_PAP IS NOT NULL THEN 'SÍ' ELSE 'NO' END AS "Cronico complejo priorizado",
+       a.BOTIQUIN AS Botiquin
+FROM rep_his_own.adm_admision@REPLICA_HOSPITAL_ANTEQUERA adm
+JOIN rep_his_own.com_usuario@REPLICA_HOSPITAL_ANTEQUERA usu
+  ON adm.usuario = usu.id_usuario
+JOIN ultima_admision ua
+  ON ua.usuario = usu.id_usuario
+LEFT JOIN cronicos c
+  ON c.NUHSA = usu.NUHSA
+LEFT JOIN asistenciales a
+  ON a.NUHSA = usu.NUHSA
+WHERE adm.fch_ingreso IS NOT NULL
+  AND adm.fch_alta IS NOT NULL
+  AND adm.fch_alta + 10 >= SYSDATE
+  AND ua.max_fch_ingreso IS NOT NULL
+  AND adm.fch_ingreso = ua.max_fch_ingreso
+  AND NVL(c.TIENE_PAP, 0) = 0
+  AND NVL(c.INDICADOR_BAJA_BDU, 0) = 1;
