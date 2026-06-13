@@ -1,0 +1,43 @@
+// Eventos JS Pacientes Frágiles y Pacientes sin Valorar 
+/* Filtrar Centro
+ * Carga lista de centros asociados a su UGC.
+ * Cuando selecciona centro, refresca la región Profesionales.
+*/
+  Evento: Change
+  Ítem: P6_FILTRO
+  Selection type: Region
+  Region: profesionales
+
+/* Cargar Pacientes, en tres eventos diferentes en el orden transcrito. */
+/* 1. setMedicoSeleccionado: Toma el valor del médico seleccionado. */
+  Action: setValue()
+  Javascript expressión:  this.triggeringElement.dataset.id
+  Selection type: Item(s)
+  Item(s): P6_ID
+
+/* 2. Marca_tarjeta: Marca tarjeta medico como seleccionado. */
+  Execute Javascript Code:
+  apex.jQuery('#CLIENTES_CARD .a-CardView').removeClass('card-selected');
+
+  apex.jQuery(this.triggeringElement)
+    .closest('.a-CardView-item')
+    .find('.a-CardView')
+    .addClass('card-selected');
+
+/* 3. Refresca región. */
+Action: Refresh
+Selection type: Region
+Region: Pacientes
+
+/* Highlight Pacientes: crea un efecto para advertir al usuario que la región pacientes ha cambiado. */ 
+Event scope: Static
+Type: Inmediate
+Event: After Refresh
+
+/* Crear Efecto */
+Execute Javascript Code:
+var $r = apex.jQuery('#PACIENTES_content');
+
+$r.removeClass('flash-refresh');
+void $r[0].offsetWidth;
+$r.addClass('flash-refresh');
