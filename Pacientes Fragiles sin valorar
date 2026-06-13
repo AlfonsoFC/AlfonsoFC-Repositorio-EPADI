@@ -1,0 +1,30 @@
+// Pacientes Fragiles sin valorar.
+// P6_ID variable local que contiene el valor del médico seleccionado.
+SELECT t."Usuario Actual NUHSA" AS NUHSA,
+       a.EPADI AS EPADI,
+       CASE WHEN c.INDICADOR_BAJA_BDU = 0 OR a.PASIVO = 1 THEN 'SÍ' ELSE 'NO' END AS PASIVO,
+       TRUNC(MONTHS_BETWEEN(SYSDATE, t."Fecha Nacimiento Usuario ID") / 12) AS EDAD,
+       CASE WHEN a.INMOVILIZADO = 1 THEN 'SÍ' ELSE 'NO' END AS INMOVILIZADO,
+       CASE WHEN c.NUHSA IS NOT NULL THEN 'SÍ' ELSE 'NO' END AS "Cronico complejo priorizado",
+       CASE WHEN TRUNC(MONTHS_BETWEEN(SYSDATE, t."Fecha Nacimiento Usuario ID") / 12) > 75 THEN 'SÍ' ELSE 'NO' END AS "+75Años"
+FROM EPADI_PACIENTES t
+INNER JOIN (
+    -- Filtro TIENE_PAP = 0 aplicado ANTES del GROUP BY 
+    SELECT /*+ INLINE */ NUHSA,
+           MAX(TIENE_PAP) AS TIENE_PAP,
+           MAX(INDICADOR_BAJA_BDU) AS INDICADOR_BAJA_BDU
+    FROM EPADI_CRONICOS_PRIORIZADOS
+    WHERE TIENE_PAP = 0 
+    GROUP BY NUHSA
+) c ON c.NUHSA = t."Usuario Actual NUHSA"
+LEFT JOIN (
+    SELECT /*+ INLINE */ NUHSA,
+           MAX(EPADI) AS EPADI,
+           MAX(PASIVO) AS PASIVO,
+           MAX(INMOVILIZADO) AS INMOVILIZADO
+    FROM EPADI_ASISTENCIALES
+    GROUP BY NUHSA
+) a ON a.NUHSA = t."Usuario Actual NUHSA"
+WHERE t."Clave Equipo Actual ID" = :P6_ID  
+ORDER BY "Cronico complejo priorizado" DESC,
+         INMOVILIZADO DESC;
