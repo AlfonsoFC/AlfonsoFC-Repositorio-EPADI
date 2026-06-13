@@ -1,0 +1,14 @@
+// Profesionales tomados por clave médica
+// Filtra por centro seleccionado guardado en variable local P7_FILTRO
+ select COD_UGC,
+       UGC,
+       COD_CENTRO,
+       CENTRO,
+       CLAVE_EQUIPO,
+       CLAVE,
+       PROFESIONAL || ' - ' || CENTRO as PROFESIONAL
+from CLAVE_MEDICA
+where CLAVE like '%G'
+  and (:P7_FILTRO is null or CENTRO = :P7_FILTRO)
+  and (:G_AREA is null or cod_distrito = :G_AREA or cod_ugc = :G_AREA)
+order by PROFESIONAL;
