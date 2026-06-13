@@ -1,0 +1,60 @@
+/* Login */
+// Autenticar contra controlador de dominio
+create or replace function autenticacion_dmsas (
+      p_username in varchar2,
+      p_password in varchar2
+) return boolean
+as
+    l_ldap_host    varchar2(100) := 'host';
+    l_ldap_port    pls_integer   := 'port-host';
+    l_session      dbms_ldap.session;
+    l_retval       pls_integer;
+    l_login_result boolean := false;
+begin
+    if p_username is null or p_password is null then
+        return false;
+    end if;
+
+    dbms_ldap.use_exception := true;
+
+    begin
+        l_session := dbms_ldap.init(
+            hostname => l_ldap_host,
+            portnum  => l_ldap_port
+        );
+
+        l_retval := dbms_ldap.simple_bind_s(
+            ld     => l_session,
+            dn     => 'DMSAS\' || lower(trim(p_username)),
+            passwd => p_password
+        );
+
+        l_login_result := (l_retval = dbms_ldap.success);
+
+        begin
+            l_retval := dbms_ldap.unbind_s(ld => l_session);
+        exception
+            when others then
+                null;
+        end;
+
+    exception
+        when others then
+            begin
+                if l_session is not null then
+                    l_retval := dbms_ldap.unbind_s(ld => l_session);
+                end if;
+            exception
+                when others then
+                    null;
+            end;
+            l_login_result := false;
+    end;
+
+    return l_login_result;
+end;
+/
+
+// Autenticar contra Profesionales: obtener autorización para aplicación.
+SELECT tipo_aplicacion FROM EPADI_PROFESIONALES
+WHERE (tipo_aplicacion LIKE 'EPADI' OR tipo_aplicacion = 'ADMIN') AND UPPER(dmsas) = UPPER(:APP_USER);
