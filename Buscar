@@ -1,0 +1,39 @@
+// Buscar pacientes en función de los valores seleccionados.
+WITH asistenciales (NUHSA, ES_INMOVILIZADO, TIENE_EPADI, ES_PASIVO) AS (
+    SELECT NUHSA,
+           MAX(CASE WHEN INMOVILIZADO = 1 THEN 1 ELSE 0 END),
+           MAX(CASE WHEN EPADI IS NOT NULL THEN 1 ELSE 0 END),
+           MAX(CASE WHEN pasivo = 1 THEN 1 ELSE 0 END)
+    FROM   EPADI_ASISTENCIALES
+    GROUP BY NUHSA
+),
+centros_ugc AS (
+    SELECT DISTINCT CENTRO
+    FROM   CLAVE_MEDICA
+    WHERE  cod_ugc = :G_AREA
+      AND  CLAVE LIKE '%G'
+)
+SELECT DISTINCT a.ES_PASIVO,
+       a.ES_INMOVILIZADO,
+       a.TIENE_EPADI,
+       t."Usuario Actual NUHSA" AS NUHSA,
+       t."Usuario Actual Primer Apellido" AS "APELLIDO PATERNO",
+       t."Usuario Actual Segundo Apellido" AS "APELLIDO MATERNO",
+       t."Usuario Actual Nombre" AS NOMBRE,
+       t."Usuario Actual Teléfono" AS "PRIMER TELÉFONO",
+       t."Usuario Actual Teléfono 2" AS "SEGUNDO TELÉFONO",
+       t."Localidad Usuario" AS LOCALIDAD,
+       t."Sexo",
+       t."Fecha Nacimiento Usuario ID" AS "Fecha Nacimiento"
+FROM   EPADI_PACIENTES t
+LEFT JOIN asistenciales a
+       ON a.NUHSA = t."Usuario Actual NUHSA"
+INNER JOIN centros_ugc k
+       ON UPPER(k.CENTRO) = UPPER(t."Localidad Usuario")
+WHERE  (:P5_NUHSA IS NULL OR t."Usuario Actual NUHSA" = :P5_NUHSA)
+   AND (:P5_NOMBRE IS NULL OR UPPER(t."Usuario Actual Nombre") LIKE UPPER('%' || :P5_NOMBRE || '%'))
+   AND (:P5_APELLIDO_PATERNO IS NULL OR UPPER(t."Usuario Actual Primer Apellido") LIKE UPPER('%' || :P5_APELLIDO_PATERNO || '%'))
+   AND (:P5_APELLIDO_MATERNO IS NULL OR UPPER(t."Usuario Actual Segundo Apellido") LIKE UPPER('%' || :P5_APELLIDO_MATERNO || '%'))
+   AND (:P5_PASIVO = 1 OR NVL(a.ES_PASIVO, 0) = 0 OR :P5_PASIVO IS NULL)
+   AND (:P5_INMOVILIZADO = 1 OR NVL(a.ES_INMOVILIZADO, 0) = 0 OR :P5_INMOVILIZADO IS NULL)
+   AND (:P5_EPADI = 1 OR NVL(a.TIENE_EPADI, 0) = 0 OR :P5_EPADI IS NULL);
